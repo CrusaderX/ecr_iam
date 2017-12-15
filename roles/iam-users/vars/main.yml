@@ -1,0 +1,8 @@
+user:
+- repository: project/backend
+  users:
+  - user-ivan.ivanon
+  - user-ivan.petrov
+- repository: project/front
+  users:
+  - user-ivan.petrov

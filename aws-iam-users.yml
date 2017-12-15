@@ -1,0 +1,8 @@
+---
+- hosts: localhost
+  gather_facts: no
+  environment:
+    AWS_PROFILE: my_aws_profile
+    AWS_REGION: my_aws_zone
+  roles:
+    - { role: iam-users }

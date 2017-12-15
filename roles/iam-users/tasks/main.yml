@@ -1,0 +1,76 @@
+- block:
+  - name: create AWS ecr repositories
+    ecs_ecr:
+      name: "{{ item.repository }}"
+    with_items:
+      - "{{ user }}"
+
+  - name: create users if not exist
+    iam:
+      iam_type: user
+      name: "{{ item }}"
+      state: present
+      access_key_state: create
+    with_items: "{{ user | sum(attribute='users', start=[]) | unique }}"
+    register: keys_state
+
+  - name: attach policy to ecr repository
+    ecs_ecr:
+      name: "{{ item.repository }}"
+      policy: "{{ lookup('template', 'ecr-policy.j2') }}"
+    with_items:
+      - "{{ user }}"
+
+  - name: attach policy to users
+    iam_policy:
+      iam_type: user
+      iam_name: "{{ item }}"
+      policy_name: "ECR-authorization-token-policy"
+      state: present
+      policy_json: " {{ lookup( 'template', 'user-policy.j2') }}"
+    with_items: "{{ user | sum(attribute='users', start=[]) | unique }}"
+
+  - name: write user access and secret keys to files
+    copy: 
+      content: |
+        [default]
+        aws_access_key_id= {{ item.user_meta.access_keys.0.access_key_id }}
+        aws_secret_access_key= {{ item.user_meta.access_keys.0.secret_access_key }}
+      dest: resources/users/{{ item.user_meta.access_keys.0.user_name }} # change destination
+    delegate_to: localhost
+    with_items: 
+      - "{{ keys_state.results }}"
+    when: keys_state.changed and 
+          item.user_meta is defined and
+          item.user_meta.access_keys.0.user_name is defined
+  when: user_action is not defined and
+        user_action != 'absent'
+
+- block:
+  - name: remove policy from user
+    iam_policy:
+      iam_type: user
+      iam_name: "{{ user_delete_name }}"
+      policy_name: "ECR-authorization-token-policy"
+      state: absent
+
+  - name: delete specific user
+    iam:
+      iam_type: user
+      name: "{{ user_delete_name }}"
+      state: absent
+      access_key_state: remove
+
+  - name: check if credential filesexist
+    stat:
+      path: "resources/users/{{ user_delete_name }}" # change destination 
+    register: credential_file_state
+
+  - name: delete credential file for user
+    file:
+      path: "resources/users/{{ user_delete_name }}" # change destination
+      state: absent
+    when: credential_file_state.stat.exists == True
+  when: user_action is defined and
+        user_action == 'absent' and
+        user_delete_name is defined

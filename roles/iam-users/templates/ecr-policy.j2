@@ -1,0 +1,22 @@
+{
+    "Version": "2008-10-17",
+    "Statement": [
+        {
+            "Sid": "new statement",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": [
+                {% set comma = joiner(",") %}
+                {% for user in item.users %}
+                {{ comma() }}"arn:aws:iam::{{ INPUT_YOUR_ACCOUNT_ID }}:user/{{ user }}"
+                {% endfor %}
+                ]
+            },
+            "Action": [
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+                "ecr:BatchCheckLayerAvailability"
+            ]
+        }
+    ]
+}
